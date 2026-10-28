@@ -1,15 +1,17 @@
+# TO RUN
+# sudo systemctl start tor   
+# sudo cat /var/lib/tor/my_website/hostname   
+
 from http.server import *
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse
 import json
 
-notes = {}
-counter = 1
 claim_token = ""
 
-# creating a class for handling 
+# Creates a class for handling 
 class NT_SERVER(BaseHTTPRequestHandler):
 
-    # helper for the response
+    # Helper for the response
     def send_response_json(self, stat, data):
         msg = json.dumps(data).encode("utf-8")
         self.send_response(stat)
@@ -18,7 +20,6 @@ class NT_SERVER(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(msg)
 
-    # creating a function for Get Request
     def do_GET(self):
         parsed_url = urlparse(self.path)
         clean_path = parsed_url.path
@@ -28,9 +29,10 @@ class NT_SERVER(BaseHTTPRequestHandler):
             self.send_header('content-type', 'text/html')
             self.end_headers()
 
+        # Gets the last token received as plain text (doesnt get it through tor)
         elif clean_path == '/claim':
             self.send_response(200)
-            self.send_header('content-type', 'text/html')
+            self.send_header('content-type', 'text/plain')
             self.end_headers()
             self.wfile.write(claim_token.encode('utf-8'))
 
@@ -44,50 +46,18 @@ class NT_SERVER(BaseHTTPRequestHandler):
         parsed_url = urlparse(self.path)
         clean_path = parsed_url.path
         
+        # Post the token as plain text in the body
         if clean_path == '/claim':
+            
+            # Analyzing the size
             content_lengt = int(self.headers.get("content-length", 0))
+            
+            # Readinf how many bytes and then decode them to a string
             claim_token = self.rfile.read(content_lengt).decode('utf-8')
             self.send_response(200)
             self.end_headers()
-        
-
-    def do_PUT(self):
-            parsed_url = urlparse(self.path)
-            clean_path = parsed_url.path
-
-            if clean_path == '/notes' or clean_path.startswith('/notes'):
-                self.send_response(405)
-                self.end_headers()
-            else:
-                self.send_response(404)
-                self.end_headers()
-
-    def do_DELETE(self):
-        parsed_url = urlparse(self.path)
-        clean_path = parsed_url.path
-        
-        if clean_path.startswith('/notes'):
-            path_partition = clean_path.strip('/').split('/')
-                        
-            if len(path_partition) == 2 and path_partition[1].isdigit():
-                note_id = int(path_partition[1])
-
-                if note_id in notes:
-                    del notes[note_id]
-                    self.send_response(204)
-                    self.end_headers()
-                    return
-            
-            self.send_response(404)
-            self.end_headers()
 
 
-# this is the object which take port 
-# number and the server-name
-# for running the server
 port = HTTPServer(('', 8090), NT_SERVER)
-
-# this is used for running our 
-# server as long as we wish
-# i.e. forever
+# Runs forever
 port.serve_forever()

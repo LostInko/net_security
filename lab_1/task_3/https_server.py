@@ -7,8 +7,8 @@ from http.cookies import SimpleCookie
 import json
 
 sessions = {}
-counter = 1
-# Handler for Port 8443 (TLS & Session authentication)
+
+# Handler for Port 8443 (TLS and Session authentication)
 class StandardHTTPSHandler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
@@ -20,10 +20,12 @@ class StandardHTTPSHandler(http.server.BaseHTTPRequestHandler):
             self.send_header('content-type', 'text/html')
             self.end_headers()
 
+        # Session verification with username
         elif clean_path == '/me':
             raw_cookies = self.headers.get('Cookie')
             username = None
 
+            # Parse incoming COokie header to retrieve session_id
             if raw_cookies:
                 cookie = SimpleCookie()
                 cookie.load(raw_cookies)
@@ -31,6 +33,7 @@ class StandardHTTPSHandler(http.server.BaseHTTPRequestHandler):
                     session_token = cookie["session_id"].value
                     username = sessions.get(session_token)
 
+            # Return user details if the session is valid
             if username:
                 msg = json.dumps({"user": username}).encode('utf-8')
                 self.send_response(200)
@@ -50,17 +53,20 @@ class StandardHTTPSHandler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         parsed_url = urlparse(self.path)
         clean_path = parsed_url.path
-        
+
+        # Validate Content-Type header costraint
         content_type = self.headers.get('content-type', '')
         if content_type != "application/json":
             self.send_response(415)
             self.end_headers()
             return
 
+        # Validate credentials (login) and issue session cookie
         if clean_path.startswith('/login'):
             content_lengt = int(self.headers.get("content-length", 0))
             msg_bytes = self.rfile.read(content_lengt)
 
+            # Parse json body
             try:
                 data = json.loads(msg_bytes.decode('utf-8'))
             
@@ -76,7 +82,8 @@ class StandardHTTPSHandler(http.server.BaseHTTPRequestHandler):
 
             username = data.get("user")
             password = data.get("password")
-            
+
+            # Authenticate by using netsec ad password and check not empty username
             if password == "netsec" and isinstance(username, str) and username:
                 session_token = str(uuid.uuid4())
                 sessions[session_token] = username
@@ -102,11 +109,15 @@ class MTLSServerHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_url = urlparse(self.path)
         clean_path = parsed_url.path
-        
+
+        # Identity extraction route
         if clean_path == '/whoami':
+            
+            # Retrieve validated client certificate from socket
             peercert = self.connection.getpeercert()
             common_name = None
 
+            # Extract commonName attribute from certificate
             if peercert and 'subject' in peercert:
                 for rdn in peercert['subject']:
                     for key, val in rdn:
@@ -114,6 +125,7 @@ class MTLSServerHandler(http.server.BaseHTTPRequestHandler):
                             common_name = val
                             break
 
+            # If extracted retrieve CommonName
             if common_name:
                 body = common_name.encode('utf-8')
                 self.send_response(200)
@@ -163,6 +175,8 @@ def run_port_8444():
 
 
 if __name__ == "__main__":
+
+    # Launch both HTTPS servers concurrently using separate daemon threads
     t1 = threading.Thread(target=run_port_8443, daemon=True)
     t2 = threading.Thread(target=run_port_8444, daemon=True)
 
