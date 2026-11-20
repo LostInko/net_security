@@ -27,4 +27,4 @@ fi
 
 # 5. Start the server
 echo "Starting HTTP/3 and HTTPS server on port 4433..."
-python https_quic.py
+python http_quic.py
