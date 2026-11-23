@@ -1,0 +1,2 @@
+hcxpcapngtool -o hashes.22000 /tmp/capture-6.pcap
+hashcat -m 22000 -a 3 hashes.22000 -1 "?d" "Acme?1?1?1?1?1?1"
